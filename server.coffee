@@ -22,7 +22,6 @@ exports.onInstall = exports.onUpgrade = exports.updateEpisodes = !->
 exports.setEpisode = (episodeNr, data) !->
 	# called when the Http API has the result for the above request
 	if data.status != '200 OK'
-		log JSON.stringify data
 		log 'Error code: ' + data.status
 		log 'Error msg: ' + data.error
 	else

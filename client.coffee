@@ -32,10 +32,22 @@ renderMainPage = !->
 							Server.sync 'watched', episode.key(), !->
 								episode.set 'watched', App.userId(), true
 							goToEpisode()
+
 				Dom.style Box: 'horizontal', alignItems: 'center'
+
 				Dom.div !->
 					Dom.style minWidth: '20px', textAlign: 'right', marginRight: '10px'
 					Dom.text episode.key() + '.'
+
+				if episode.get('watched', App.userId()) and image = episode.get('info', 'image')
+					Dom.img !->
+						Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px'
+						Dom.prop 'src', image
+				else
+					Dom.div !->
+						Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px', background: '#ddd', textAlign: 'center', lineHeight: '36px', color: '#fff'
+						Dom.text "?"
+
 				Dom.div !->
 					Dom.style Flex: 1
 					Dom.text episode.get 'info', 'title'
