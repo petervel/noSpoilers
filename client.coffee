@@ -50,7 +50,6 @@ renderMainPage = !->
 						Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px', background: '#ddd', textAlign: 'center', lineHeight: '36px', color: '#fff'
 						Dom.text "?"
 
-
 				Dom.div !->
 					tmp = episode.get('info', 'airDate')?.split('-')
 					airDate = new Date tmp[0], tmp[1]-1, tmp[2]
@@ -59,8 +58,12 @@ renderMainPage = !->
 					Dom.style Flex: 1, fontWeight: fontWeight
 					Dom.text episode.get 'info', 'title'
 
+					Dom.span !->
+						Dom.style color: '#ddd', fontSize: 'x-small', margin: '0 5px'
+						Dom.text "(" + episode.get('info', 'airDate') + ")"
+
 				Dom.div !->
-					Dom.style padding: '0 5px'
+					Dom.style padding: '0 5px', width: '30px'
 					Event.renderBubble [episode.key()]
 
 				renderWatched episode.ref 'watched'
