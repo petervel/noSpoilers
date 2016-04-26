@@ -9,6 +9,7 @@ Server = require 'server'
 Ui = require 'ui'
 Xml = require 'xml'
 Event = require 'event'
+Icon = require 'icon'
 
 exports.render = !->
 	if episodeId = Page.state.get(0)
@@ -80,6 +81,11 @@ renderEpisode = (id) !->
 			Dom.style margin: '20px auto', display: 'block'
 			Dom.prop 'src', image
 
+	if airDate = info.get 'airDate'
+		Dom.div !->
+			Dom.style fontStyle: 'italic', fontSize: 'small'
+			Dom.text airDate
+
 	if summary = info.get 'summary'
 		Ui.card !->
 			Dom.text summary
@@ -95,7 +101,7 @@ renderEpisode = (id) !->
 renderWatched = (watchedBy) !->
 	watchedCount = Obs.create 0
 	Obs.observe !->
-		watchedBy.iterate (watched) !->
+		watchedBy.iterate !->
 			watchedCount.incr()
 			Obs.onClean !->
 				watchedCount.incr(-1)

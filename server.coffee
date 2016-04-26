@@ -36,6 +36,10 @@ exports.setEpisode = (episodeNr, data) !->
 					if (overview = meta.innerText)?
 						result.summary = overview
 
+				if meta = Xml.search(tree, '*. firstaired')[0]
+					if (airDate = meta.innerText)?
+						result.airDate = airDate
+
 				if meta = Xml.search(tree, '*. filename')[0]
 					if (filename = meta.innerText)?
 						result.image = 'http://www.thetvdb.com/banners/' + filename
