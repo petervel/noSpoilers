@@ -22,6 +22,7 @@ renderMainPage = !->
 		Dom.style display: 'block', width: '100%', margin: 'auto'
 		Dom.prop 'src', App.resourceUri("GoT.png")
 
+
 	Db.shared.iterate 'episodes', (episode) !->
 			Ui.item !->
 				Dom.onTap !->
@@ -49,15 +50,20 @@ renderMainPage = !->
 						Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px', background: '#ddd', textAlign: 'center', lineHeight: '36px', color: '#fff'
 						Dom.text "?"
 
+
 				Dom.div !->
-					Dom.style Flex: 1
+					tmp = episode.get('info', 'airDate')?.split('-')
+					airDate = new Date tmp[0], tmp[1]-1, tmp[2]
+					delta = App.date().getTime() - airDate.getTime()
+					fontWeight = if delta > 0 and delta < (7*24*60*60*1000) then 'bold' else 'inherit'
+					Dom.style Flex: 1, fontWeight: fontWeight
 					Dom.text episode.get 'info', 'title'
 
 				Dom.div !->
+					Dom.style padding: '0 5px'
 					Event.renderBubble [episode.key()]
 
-				Dom.div !->
-					renderWatched episode.ref 'watched'
+				renderWatched episode.ref 'watched'
 
 		, (episode) -> +episode.key()
 
@@ -101,17 +107,18 @@ renderEpisode = (id) !->
 renderWatched = (watchedBy) !->
 	watchedCount = Obs.create 0
 	Obs.observe !->
-		watchedBy.iterate !->
+		watchedBy.iterate (watchedTime) !->
+			return if App.userIsMock(+watchedTime.key())
 			watchedCount.incr()
 			Obs.onClean !->
 				watchedCount.incr(-1)
 
 	Dom.div !->
-		colour = if watchedCount.get() is 0 then '#ccc' else App.colors().highlight
-		Dom.style color: colour, borderRadius: '3px', minWidth: '30px', padding: '5px 10px'
+		colour = if watchedBy.get(App.userId()) then App.colors().highlight else '#ddd'
+		Dom.style color: colour, borderRadius: '3px', minWidth: '30px', padding: '5px 0px'
 		Icon.render
 			data: 'eye'
-			size: 24
+			size: 20
 			color: colour
 
 		Dom.text watchedCount.get()
@@ -119,6 +126,7 @@ renderWatched = (watchedBy) !->
 			Modal.show "Watched by:", !->
 				watchedBy.iterate (watchedTime) !->
 						userId = +watchedTime.key()
+						return if App.userIsMock(userId)
 						Ui.item !->
 							if userId is App.userId()
 								Dom.style fontWeight: 'bold'
