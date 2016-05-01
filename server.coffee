@@ -2,6 +2,8 @@ Db = require 'db'
 Http = require 'http'
 Timer = require 'timer'
 App = require 'app'
+Xml = require 'xml'
+Event = require 'event'
 
 API_KEY = "67557EB2FBDA2BED"
 GOT_ID = 121361 #Game of Thrones
@@ -10,18 +12,21 @@ SEASON_NR = 6
 SERIES_ID = GOT_ID
 
 exports.onInstall = exports.onUpgrade = exports.updateEpisodes = !->
-	for episodeNr in [1..10]
-		Http.get
-			url: "http://thetvdb.com/api/#{API_KEY}/series/#{SERIES_ID}/default/#{SEASON_NR}/#{episodeNr}/en.xml"
-			cb: ['setEpisode', episodeNr]
+	getEpisode 1
 
 	# update again in a day
 	Timer.cancel 'updateEpisodes'
 	Timer.set (24*60*60*1000), 'updateEpisodes'
 
+getEpisode = (episodeNr) !->
+	Http.get
+		url: "http://thetvdb.com/api/#{API_KEY}/series/#{SERIES_ID}/default/#{SEASON_NR}/#{episodeNr}/en.xml"
+		cb: ['setEpisode', episodeNr]
+
 exports.setEpisode = (episodeNr, data) !->
 	# called when the Http API has the result for the above request
 	if data.status != '200 OK'
+		log 'failed to get episode ' + episodeNr
 		log 'Error code: ' + data.status
 		log 'Error msg: ' + data.error
 	else
@@ -46,5 +51,25 @@ exports.setEpisode = (episodeNr, data) !->
 
 				Db.shared.set 'episodes', episodeNr, 'info', result
 
+				#log 'Successfully updated episode ' + episodeNr
+
+				# succes! get the next one!
+				getEpisode (episodeNr + 1)
+
+exports.client_unwatched = (id) !->
+	episode = Db.shared.ref 'episodes', id
+	episode.set 'watched', App.userId(), null
+
 exports.client_watched = (id) !->
-	Db.shared.set 'episodes', id, 'watched', App.userId(), App.time()
+	episode = Db.shared.ref 'episodes', id
+	watchedBy = episode.ref 'watched'
+	sendTo = (+k for k,v of watchedBy.get() when not App.userIsMock(+k))
+	Comments.post
+		s: 'watched'
+		store: ['episodes', id, 'comments']
+		u: App.userId()
+		path: [id]
+		normalPrio: sendTo
+		pushText: App.userName() + " watched episode “" + episode.get('info', 'title') + "”"
+
+	watchedBy.set App.userId(), App.time()
