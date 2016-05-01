@@ -70,6 +70,7 @@ renderMainPage = !->
 				renderWatched episode.ref 'watched'
 
 		, (episode) -> +episode.key()
+	Obs.onTime 1000, !-> Modal.show JSON.stringify deltas
 
 renderEpisode = (id) !->
 	episode = Db.shared.ref 'episodes', id
