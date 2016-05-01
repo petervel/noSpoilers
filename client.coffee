@@ -22,7 +22,7 @@ renderMainPage = !->
 		Dom.style display: 'block', width: '100%', margin: 'auto'
 		Dom.prop 'src', App.resourceUri("GoT.png")
 
-
+	deltas = []
 	Db.shared.iterate 'episodes', (episode) !->
 			Ui.item !->
 				Dom.onTap !->
@@ -52,9 +52,13 @@ renderMainPage = !->
 
 				Dom.div !->
 					tmp = episode.get('info', 'airDate')?.split('-')
-					airDate = new Date tmp[0], tmp[1]-1, tmp[2]
+					airDate = new Date tmp[0], (+tmp[1] - 1), (+tmp[2] + 1)
+					#sysDate = App.date()
+					#cmpDate = new Date sysDate.getFullYear(), sysDate.getMonth(), sysDate.getDate()
+					Modal.show airDate.toString()
 					delta = App.date().getTime() - airDate.getTime()
 					fontWeight = if delta > 0 and delta < (7*24*60*60*1000) then 'bold' else 'inherit'
+					deltas.push delta
 					Dom.style Flex: 1, fontWeight: fontWeight
 					Dom.text episode.get 'info', 'title'
 
@@ -69,6 +73,7 @@ renderMainPage = !->
 				renderWatched episode.ref 'watched'
 
 		, (episode) -> +episode.key()
+	Obs.onTime 1000, !-> Modal.show JSON.stringify deltas
 
 renderEpisode = (id) !->
 	episode = Db.shared.ref 'episodes', id
@@ -77,6 +82,13 @@ renderEpisode = (id) !->
 
 	Page.setTitle info.get 'title'
 
+	###
+	Dom.div !->
+		Dom.text "unwatch"
+		Dom.onTap !->
+			Server.send 'unwatched', id
+			Page.nav ''
+	###
 	Dom.h1 !->
 		Dom.style textAlign: 'center'
 		Dom.text info.get 'title'
@@ -106,6 +118,9 @@ renderEpisode = (id) !->
 			comment.normalPrio = (k for k,v of watchedBy.get())
 			false
 		store: ['episodes', id, 'comments']
+		messages:
+			# the key is the `s` key.
+			watched: (c) -> App.userName(c.u) + " watched this episode"
 
 renderWatched = (watchedBy) !->
 	watchedCount = Obs.create 0
