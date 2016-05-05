@@ -161,34 +161,40 @@ exports.renderSettings = !->
 	cfg = Db.shared.get('cfg') || {}
 
 	language = Obs.create()
+	showName = Obs.create ''
+	shows = Obs.create()
+
+
+	findShow = !->
+		Server.call 'findShow', showName.peek(), language.peek(), (result) !->
+			# TODO: shouldn't .set just clear existing values in this hash? else it'd be .merge right?
+			shows.set null # clear old search results
+			#Modal.show "before: " + JSON.stringify showsInfo.get()
+			#Modal.show "setting value: " + JSON.stringify result
+			shows.set result
+			#Modal.show "after: " + JSON.stringify showsInfo.get()
+
 	Form.segmented
 		name: 'language'
 		value: 'en'
 		segments: ['en', 'English', 'nl', 'Dutch']
-		onChange: (v) !-> language.set v
+		onChange: (v) !->
+			language.set v
+			findShow()
 
 	Form.box !->
 		Dom.style width: '100%', boxSizing: 'border-box', border: '1px solid transparent'
 
 		selectedIndex = Obs.create()
-		shows = Obs.create()
 
 		showId = Form.hidden 'showId'
 
 		Obs.observe !->
 			showId.value shows.get 'shows', selectedIndex.get(), 'id'
 
-		showName = Obs.create ''
 		Obs.observe !->
 			if showName.get()?.length >= 3
-				Obs.onTime 500, !->
-					Server.call 'findShow', showName.peek(), language.peek(), (result) !->
-						# TODO: shouldn't .set just clear existing values in this hash? else it'd be .merge right?
-						shows.set null # clear old search results
-						#Modal.show "before: " + JSON.stringify showsInfo.get()
-						#Modal.show "setting value: " + JSON.stringify result
-						shows.set result
-						#Modal.show "after: " + JSON.stringify showsInfo.get()
+				Obs.onTime 500, !-> findShow()
 
 		Form.input
 			name: '_showName'
@@ -209,7 +215,7 @@ exports.renderSettings = !->
 					Dom.style margin: '0 5px'
 					Dom.text "#{shows.count().get()} matches:"
 				Dom.div !->
-					Dom.style maxHeight: '400px', overflow: 'auto'
+					Dom.style maxHeight: '300px', overflow: 'auto'
 					shows.iterate (show) !->
 						Ui.item !->
 							Dom.style position: 'relative'
@@ -219,13 +225,21 @@ exports.renderSettings = !->
 								else
 									Dom.style border: '2px solid transparent'
 							Dom.div !->
-								Dom.style position: 'absolute', zIndex: 1, opacity: 0.1, left: 0, top: 0, bottom: 0, right: 0, background: "transparent url(#{show.get 'banner'}) no-repeat center"
+								Dom.style
+									position: 'absolute'
+									zIndex: 1
+									opacity: 0.1
+									left: 0
+									top: 0
+									bottom: 0
+									right: 0
+									background: "transparent url(http://www.thetvdb.com/banners/#{show.get 'banner'}) no-repeat center"
 
 							Dom.div !->
 								Dom.style zIndex: 2
 								Dom.div !->
 									Dom.style fontWeight: 'bold', fontSize: '12pt', margin: '5px 0'
-									Dom.text show.get 'name'
+									Dom.text show.get 'seriesName'
 								Dom.div !->
 									Dom.style fontStyle: 'italic', color: '#aaa', fontSize: '10pt', maxHeight: '80px', overflow: 'hidden'
 									Dom.text show.get 'overview'
