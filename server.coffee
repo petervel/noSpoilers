@@ -4,6 +4,7 @@ Timer = require 'timer'
 App = require 'app'
 Xml = require 'xml'
 Event = require 'event'
+Comments = require 'comments'
 
 API_KEY = "67557EB2FBDA2BED"
 GOT_ID = 121361 #Game of Thrones
@@ -73,3 +74,43 @@ exports.client_watched = (id) !->
 		pushText: App.userName() + " watched episode “" + episode.get('info', 'title') + "”"
 
 	watchedBy.set App.userId(), App.time()
+
+exports.client_findShow = (name, language, cbo) !->
+	Http.get
+		url: "http://thetvdb.com/api/GetSeries.php?seriesname=#{encodeURI(name)}&language=#{language}&apikey=#{API_KEY}"
+		cb: ['parseShows', cbo]
+
+exports.parseShows = (cbo, data) !->
+	if data.status != '200 OK'
+		log cbo
+		log 'Error code: ' + data.status
+		log 'Error msg: ' + data.error
+	else
+		shows = {}
+		cnt = 0
+
+		tree = Xml.decode data.body
+		for series in Xml.search(tree, '*. series')
+			result = {}
+
+			continue if not result.id = Xml.search(series, '*.', tag: 'seriesid')?[0]?.innerText
+
+			continue if not result.name = Xml.search(series, '*.', tag: 'seriesname')?[0]?.innerText
+
+			continue if not result.overview = Xml.search(series, '*.', tag: 'overview')?[0]?.innerText
+
+			# optional
+			if banner = Xml.search(series, '*.', tag: 'banner')?[0]?.innerText
+				result.banner = 'http://www.thetvdb.com/banners/' + banner
+
+			shows[cnt] = result
+			cnt++
+
+		cbo.reply shows
+
+exports.onConfig = (config = {}, fromInstall = false) !->
+	log '[config] ', JSON.stringify(config)
+
+	loadShow +config.showId, +config.seasonNr
+
+loadShow = (showId) !->
