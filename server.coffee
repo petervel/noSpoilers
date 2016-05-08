@@ -9,32 +9,13 @@ Tvdb = require 'tvdb'
 
 # make sure we are signed in
 exports.onInstall = !->
-	Db.backend.set 'attempts', 0
+	Tvdb.onInstall()
 
-getEpisode = (i) !->
-	Tvdb.getEpisode i, (result) !->
-		# still finding new episodes?
-		if result
-			Db.shared 'episodes', i, result
-			getEpisode i + 1
+exports.client_setLanguage = (language) !->
+	Db.shared.set 'cfg', 'language', language
 
-# Http wrappers since those calls always land in this file
-exports.getToken = !-> Tvdb.getToken()
-exports.setToken = (refreshing, data) !-> Tvdb.setToken refreshing, data
-exports.setEpisode = (episodeNr, cb, data) !-> Tvdb.setEpisode episodeNr, cb, data
-exports.client_findShow = (name, language, cbo) !-> Tvdb.findShow name, language, cbo
-exports.returnShows = (cb, data) !-> Tvdb.returnShows cb, data
-
-exports.updateEpisodes = !->
-	getEpisode 1
-
-	# update again in a day
-	Timer.cancel 'updateEpisodes'
-	Timer.set (24*60*60*1000), 'updateEpisodes'
-
-exports.client_unwatched = (id) !->
-	episode = Db.shared.ref 'episodes', id
-	episode.set 'watched', App.userId(), null
+exports.client_setSeason = (season) !->
+	Db.shared.set 'cfg', 'season', season
 
 exports.client_watched = (id) !->
 	episode = Db.shared.ref 'episodes', id
@@ -50,9 +31,22 @@ exports.client_watched = (id) !->
 
 	watchedBy.set App.userId(), App.time()
 
+exports.client_unwatched = (id) !->
+	episode = Db.shared.ref 'episodes', id
+	episode.set 'watched', App.userId(), null
+
 exports.onConfig = (config = {}, fromInstall = false) !->
 	log '[config] ', JSON.stringify(config)
 
-	loadShow +config.showId, +config.seasonNr
-
-loadShow = (showId) !->
+# Http wrappers since those calls always land in this file
+exports.getToken = !-> Tvdb.getToken()
+exports.setToken = (refreshing, data) !-> Tvdb.setToken refreshing, data
+exports.setEpisode = (episodeNr, cb, data) !-> Tvdb.setEpisode episodeNr, cb, data
+exports.client_findShow = (name, cbo) !-> Tvdb.findShow name, cbo
+exports.returnShows = (cb, data) !-> Tvdb.returnShows cb, data
+exports.setShow = (data) !-> Tvdb.setShow data
+exports.setEpisodes = (data) !-> Tvdb.setEpisodes data
+exports.client_loadShow = (id) !->
+	Db.shared.set 'cfg', 'showId', id
+	Tvdb.loadShow id
+loadShow = (showId) !-> Tvdb.loadShow showId

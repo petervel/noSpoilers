@@ -13,15 +13,18 @@ SERIES_ID = GOT_ID
 getHeaders = (language) !->
 	headers =
 		'Content-Type': 'application/json'
-		'Accept': 'application/json'
+		'Accept': 'application/json' # currently removed in http.coffee, not on the safe list
 
-	if language?
-		headers['Accept-Language'] = language # due to client side caching, you can't change language yet :/
+	if Db.shared.peek('language')?
+		headers['Accept-Language'] = Db.shared.peek 'language' # not in the safe list in http.coffee, so gets deleted atm
 
 	if Db.backend.peek 'token'
 		headers['Authorization'] = 'Bearer ' + Db.backend.peek 'token'
 
 	return headers
+
+exports.onInstall = !->
+	Db.backend.set 'attempts', 0
 
 exports.getToken = !->
 	if Db.backend.peek('token')?
@@ -77,10 +80,9 @@ exports.setEpisode = (episodeNr, cb, data) !->
 		log 'setEpisode ', episodeNr, ' error - code: ', data.status, ', msg: ', data.error
 		cb false
 
-exports.findShow = (name, language, cbo) !->
-	log 'getting ',"https://api.thetvdb.com/search/series?name=#{encodeURI(name)}"
+exports.findShow = (name, cbo) !->
 	Http.get
-		headers: getHeaders language
+		headers: getHeaders()
 		url: "https://api.thetvdb.com/search/series?name=#{encodeURI(name)}"
 		cb: ['returnShows', cbo]
 
@@ -94,4 +96,51 @@ exports.returnShows = (cbo, data) !->
 	else
 		log 'returnShows error - code: ', data.status, ', msg: ', data.error
 		cbo.reply false
+
+exports.loadShow = (id) !->
+	log 'loadShow'
+	Db.shared.set 'show', null # clear previous
+	log "https://api.thetvdb.com/series/#{id}"
+	Http.get
+		headers: getHeaders()
+		url: "https://api.thetvdb.com/series/#{id}"
+		cb: ["setShow"]
+
+exports.setShow = (data) !->
+	log 'setShow'
+	if data.status == '200 OK'
+		body = JSON.parse data.body
+		Db.shared.set 'show', body.data
+		# show loaded, get the episodes
+		exports.loadEpisodes Db.shared.peek 'show', 'id'
+	else
+		log 'setShow error - code: ', data.status, ', msg: ', data.error
+
+exports.loadEpisodes = (id, page) !->
+	log 'loadEpisodes', page
+	page = page ? 1
+
+	Http.get
+		headers: getHeaders()
+		url: "https://api.thetvdb.com/series/#{id}/episodes?page=#{page}"
+		cb: ['setEpisodes']
+
+exports.setEpisodes = (data) !->
+	log 'setEpisodes'
+	if data.status == '200 OK'
+		body = JSON.parse data.body
+		episodes = {}
+		for ep in body.data
+			s = ep.dvdSeason ? 0 # specials etc
+
+			if not episodes[s]
+				episodes[s] = {}
+			episodes[s][ep.dvdEpisodeNumber] = ep
+		Db.shared.merge 'show', 'episodes', episodes
+
+		# are there more episodes?
+		if body.links.next
+			exports.loadEpisodes Db.shared.peek('show', 'id'), body.links.next
+	else
+		log 'returnShows error - code: ', data.status, ', msg: ', data.error
 
