@@ -14,100 +14,104 @@ Form = require 'form'
 Config = require 'config'
 
 exports.render = !->
-	if episodeId = Page.state.get(0)
-		renderEpisode +episodeId
+	if episodeNr = Page.state.get(0)
+		renderEpisode +episodeNr
 	else
 		renderMainPage()
 
 renderMainPage = !->
+	#Page.setTitle Db.shared.get('show', 'seriesName') ? "No Spoilers!"
 	Dom.img !->
 		Dom.style display: 'block', width: '100%', margin: 'auto'
-		Dom.prop 'src', Db.shared.get 'banner'
+		Dom.prop 'src', Db.shared.get  'show', 'image'
 
-	deltas = []
-	Db.shared.iterate 'episodes', (episode) !->
-			Ui.item !->
-				Dom.onTap !->
-					goToEpisode = !-> Page.nav episode.key()
-					if episode.get 'watched', App.userId()
-						goToEpisode()
-					else
-						Modal.confirm "SPOILERS AHEAD!", "Are you sure you have already watched this episode?", !->
-							Server.sync 'watched', episode.key(), !->
-								episode.set 'watched', App.userId(), true
-							goToEpisode()
-
-				Dom.style Box: 'horizontal', alignItems: 'center'
-
-				Dom.div !->
-					Dom.style minWidth: '20px', textAlign: 'right', marginRight: '10px'
-					Dom.text episode.key() + '.'
-
-				if episode.get('watched', App.userId()) and image = episode.get('info', 'image')
-					Dom.img !->
-						Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px'
-						Dom.prop 'src', image
-				else
-					Dom.div !->
-						Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px', background: '#ddd', textAlign: 'center', lineHeight: '36px', color: '#fff'
-						Dom.text "?"
-
-				Dom.div !->
-					tmp = episode.get('info', 'airDate')?.split('-')
-					airDate = new Date tmp[0], (+tmp[1] - 1), (+tmp[2] + 1)
-					delta = App.date().getTime() - airDate.getTime()
-					fontWeight = if delta > 0 and delta < (7*24*60*60*1000) then 'bold' else 'inherit'
-					deltas.push delta
-					Dom.style Flex: 1, fontWeight: fontWeight
-					Dom.text episode.get 'info', 'title'
-
-					Dom.span !->
-						Dom.style color: '#ddd', fontSize: 'x-small', margin: '0 5px'
-						Dom.text "(" + episode.get('info', 'airDate') + ")"
-
-				Dom.div !->
-					Dom.style padding: '0 5px', width: '30px'
-					Event.renderBubble [episode.key()]
-
-				renderWatched episode.ref 'watched'
-
+	Db.shared.iterate 'show', 'episodes', Db.shared.get('cfg', 'season'), (episode) !->
+			renderEpisodeItem episode
 		, (episode) -> +episode.key()
 
-renderEpisode = (id) !->
-	episode = Db.shared.ref 'episodes', id
-	info =  episode.ref 'info'
+renderEpisodeItem = (episode) !->
+		Ui.item !->
+			Dom.onTap !->
+				goToEpisode = !-> Page.nav episode.key()
+				if episode.get 'watched', App.userId()
+					goToEpisode()
+				else
+					Modal.confirm "SPOILERS AHEAD!", "Are you sure you have already watched this episode?", !->
+						Server.sync 'watched', episode.key(), !->
+							episode.set 'watched', App.userId(), true
+						goToEpisode()
+
+			Dom.style Box: 'horizontal', alignItems: 'center'
+
+			Dom.div !->
+				Dom.style minWidth: '20px', textAlign: 'right', marginRight: '10px'
+				Dom.text episode.key() + '.'
+
+			if episode.get('watched', App.userId()) and image = episode.get('image')
+				Dom.img !->
+					Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px'
+					Dom.prop 'src', image
+			else
+				Dom.div !->
+					Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px', background: '#ddd', textAlign: 'center', lineHeight: '36px', color: '#fff'
+					Dom.text "?"
+
+			Dom.div !->
+				tmp = episode.get('firstAired')?.split('-')
+				airDate = new Date tmp[0], (+tmp[1] - 1), (+tmp[2] + 1)
+				delta = App.date().getTime() - airDate.getTime()
+				fontWeight = if delta > 0 and delta < (7*24*60*60*1000) then 'bold' else 'inherit'
+
+				Dom.style Flex: 1, fontWeight: fontWeight
+				Dom.text episode.get 'episodeName'
+
+				Dom.span !->
+					Dom.style color: '#ddd', fontSize: 'x-small', margin: '0 5px'
+					Dom.text "(" + episode.get('firstAired') + ")"
+
+			Dom.div !->
+				Dom.style padding: '0 5px', width: '30px'
+				Event.renderBubble [episode.key()]
+
+			renderWatched episode.ref 'watched'
+
+
+renderEpisode = (episodeNr) !->
+	episode = Db.shared.ref 'show', 'episodes', Db.shared.peek('cfg', 'season'), episodeNr
+	#Modal.show JSON.stringify episode.get()
+	#info =  episode.ref 'info'
 	watchedBy = episode.ref 'watched'
 
-	Page.setTitle info.get 'title'
+	Page.setTitle episode.get 'episodeName'
 
 	###
 	Dom.div !->
 		Dom.text "unwatch"
 		Dom.onTap !->
-			Server.send 'unwatched', id
+			Server.send 'unwatched', episodeNr
 			Page.nav ''
 	###
 	Dom.h1 !->
 		Dom.style textAlign: 'center'
-		Dom.text info.get 'title'
+		Dom.text episode.get 'episodeName'
 
 	Dom.div !->
 		Dom.style textAlign: 'center'
 		renderWatched watchedBy
 
-	if image = info.get 'image'
+	if image = episode.get 'image'
 		Dom.img !->
 			Dom.style margin: '20px auto', display: 'block'
 			Dom.prop 'src', image
 
-	if airDate = info.get 'airDate'
+	if airDate = episode.get 'firstAired'
 		Dom.div !->
 			Dom.style fontStyle: 'italic', fontSize: 'small'
 			Dom.text airDate
 
-	if summary = info.get 'summary'
+	if overview = episode.get 'overview'
 		Ui.card !->
-			Dom.text summary
+			Dom.text overview
 
 	Comments.enable
 		invertBar: false
@@ -115,7 +119,7 @@ renderEpisode = (id) !->
 			comment.lowPrio = 'all'
 			comment.normalPrio = (k for k,v of watchedBy.get())
 			false
-		store: ['episodes', id, 'comments']
+		store: ['show', 'episodes', episodeNr, 'comments']
 		messages:
 			# the key is the `s` key.
 			watched: (c) -> App.userName(c.u) + " watched this episode"
@@ -155,4 +159,5 @@ renderWatched = (watchedBy) !->
 					, (watchedTime) -> -watchedTime.get()
 
 exports.renderSettings = !->
+	return if Db.shared
 	Config.render()

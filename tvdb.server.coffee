@@ -3,14 +3,8 @@ Db = require 'db'
 Timer = require 'timer'
 
 API_KEY = "67557EB2FBDA2BED"
-
-# TODO: REMOVE?
-GOT_ID = 121361 #Game of Thrones
-LOST_ID = 73739 #LOST
-SEASON_NR = 6
-SERIES_ID = GOT_ID
-
-getHeaders = (language) !->
+IMAGE_PREFIX = "http://thetvdb.com/banners/"
+getHeaders = !->
 	headers =
 		'Content-Type': 'application/json'
 		'Accept': 'application/json' # currently removed in http.coffee, not on the safe list
@@ -65,21 +59,6 @@ exports.setToken = (refreshing, data) !->
 	Timer.cancel 'getToken'
 	Timer.set delay, 'getToken'
 
-getEpisode = (episodeNr, cb) !->
-	Http.get
-		headers: getHeaders()
-		url: "http://thetvdb.com/api/#{API_KEY}/series/#{SERIES_ID}/default/#{SEASON_NR}/#{episodeNr}/en.xml"
-		cb: ['setEpisode', episodeNr, cb]
-
-exports.setEpisode = (episodeNr, cb, data) !->
-	# called when the Http API has the result for the above request
-	if data.status == '200 OK'
-		body = JSON.parse data.body
-		cb body
-	else
-		log 'setEpisode ', episodeNr, ' error - code: ', data.status, ', msg: ', data.error
-		cb false
-
 exports.findShow = (name, cbo) !->
 	Http.get
 		headers: getHeaders()
@@ -110,7 +89,9 @@ exports.setShow = (data) !->
 	log 'setShow'
 	if data.status == '200 OK'
 		body = JSON.parse data.body
-		Db.shared.set 'show', body.data
+		episode = body.data
+		episode.image = IMAGE_PREFIX + episode.banner
+		Db.shared.set 'show', episode
 		# show loaded, get the episodes
 		exports.loadEpisodes Db.shared.peek 'show', 'id'
 	else
@@ -131,11 +112,13 @@ exports.setEpisodes = (data) !->
 		body = JSON.parse data.body
 		episodes = {}
 		for ep in body.data
-			s = ep.dvdSeason ? 0 # specials etc
+			s = ep.dvdSeason ? (ep.airedSeason ? 0) # 0 = specials etc
 
 			if not episodes[s]
 				episodes[s] = {}
-			episodes[s][ep.dvdEpisodeNumber] = ep
+
+			nr = ep.dvdEpisodeNumber ? ep.airedEpisodeNumber
+			episodes[s][nr] = ep
 		Db.shared.merge 'show', 'episodes', episodes
 
 		# are there more episodes?
@@ -143,4 +126,23 @@ exports.setEpisodes = (data) !->
 			exports.loadEpisodes Db.shared.peek('show', 'id'), body.links.next
 	else
 		log 'returnShows error - code: ', data.status, ', msg: ', data.error
+
+exports.loadEpisode = (id) !->
+	Http.get
+		headers: getHeaders()
+		url: "https://api.thetvdb.com/episodes/#{id}"
+		cb: ['setEpisode']
+
+exports.setEpisode = (response) !->
+	if response.status == '200 OK'
+		body = JSON.parse response.body
+		ep = body.data
+		ep.image = IMAGE_PREFIX + ep.filename
+
+		s = ep.dvdSeason ? (ep.airedSeason ? 0) # 0 = specials etc
+		nr = ep.dvdEpisodeNumber ? ep.airedEpisodeNumber
+
+		Db.shared.merge 'show', 'episodes', s, nr, ep
+	else
+		log 'setEpisode error - code: ', response.status, ', msg: ', response.error
 

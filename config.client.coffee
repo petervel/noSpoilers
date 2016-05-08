@@ -11,8 +11,6 @@ exports.render = !->
 	#	Dom.div !-> "You can't change the tv show this app is showing. Start a new one for a different show."
 	#	return
 
-	cfg = Db.shared.peek('cfg') || {}
-
 	showName = Obs.create ''
 	shows = Obs.create {}
 	selectedShow = Obs.create()
@@ -21,7 +19,7 @@ exports.render = !->
 
 	Form.box !->
 		Obs.observe !->
-			showId = Form.hidden 'showId'
+			showId = Form.hidden '_showId'
 			showId.value +selectedShow.get('id')
 
 		Dom.div !->
@@ -29,14 +27,14 @@ exports.render = !->
 				Dom.style display: if selectedShow.get() then 'none' else 'block'
 
 			Form.segmented
-				name: 'language'
-				value: cfg.language || 'en'
+				name: '_language'
+				value: 'en'
 				segments: ['en', 'English', 'nl', 'Dutch']
 				onChange: (v) !-> Server.sync 'setLanguage', v, !-> Db.shared.set 'cfg', 'language', v
 
 			# if a setting changes, refresh the list of shows
 			Obs.observe !->
-				Db.shared.get 'language' # subscribe to changes
+				Db.shared.get '_language' # subscribe to changes
 				if showName.get().length
 					Obs.onTime 500, !->
 						loading.set true
@@ -54,8 +52,8 @@ exports.render = !->
 			inp = Form.input
 				name: '_showName'
 				text: 'tv show'
-				value: Db.shared.peek 'show', 'showName'
-				onChange: (val) !-> showName.set val
+				value: Db.shared.peek 'show', 'seriesName'
+				onChange: (v) !-> showName.set v
 
 		Dom.animate
 			create:
@@ -87,19 +85,16 @@ exports.render = !->
 						Dom.div !->
 							Dom.style margin: '10px 0'
 							Dom.text "Season:"
-						episodes = Db.shared.get 'show', 'episodes'
 
 						seasons = []
-						for s,k of episodes
+						for s,k of Db.shared.get 'show', 'episodes'
 							seasons.push s
 							seasons.push s
 
 						Form.segmented
 							name: 'season'
-							value: seasons[seasons.length - 1]
+							value: seasons[seasons.length - 1] ? 0
 							segments: seasons
-							onChange: (v) !-> Server.sync 'setSeason', v, !-> Db.shared.set 'cfg', 'season', v
-
 		Form.condition !->
 			return "No tv show selected" if not selectedShow.get()
 
