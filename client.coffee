@@ -12,6 +12,7 @@ Event = require 'event'
 Icon = require 'icon'
 Form = require 'form'
 Config = require 'config'
+Tvdb = require 'tvdb'
 
 exports.render = !->
 	if episodeNr = Page.state.get(0)
@@ -19,13 +20,15 @@ exports.render = !->
 	else
 		renderMainPage()
 
+currentShow = -> Db.shared.ref 'shows', Db.shared.get 'cfg', 'showId'
+
 renderMainPage = !->
 	#Page.setTitle Db.shared.get('show', 'seriesName') ? "No Spoilers!"
 	Dom.img !->
 		Dom.style display: 'block', width: '100%', margin: 'auto'
-		Dom.prop 'src', Db.shared.get  'show', 'image'
+		Dom.prop 'src', currentShow().get 'image'
 
-	Db.shared.iterate 'show', 'episodes', Db.shared.get('cfg', 'season'), (episode) !->
+	currentShow().iterate 'episodes', Db.shared.get('cfg', 'season'), (episode) !->
 			renderEpisodeItem episode
 		, (episode) -> +episode.key()
 
@@ -77,7 +80,8 @@ renderEpisodeItem = (episode) !->
 
 
 renderEpisode = (episodeNr) !->
-	episode = Db.shared.ref 'show', 'episodes', Db.shared.peek('cfg', 'season'), episodeNr
+	seasonNr = Db.shared.peek('cfg', 'season')
+	episode = currentShow().ref 'episodes', seasonNr, episodeNr
 	#Modal.show JSON.stringify episode.get()
 	#info =  episode.ref 'info'
 	watchedBy = episode.ref 'watched'
@@ -119,7 +123,7 @@ renderEpisode = (episodeNr) !->
 			comment.lowPrio = 'all'
 			comment.normalPrio = (k for k,v of watchedBy.get())
 			false
-		store: ['show', 'episodes', episodeNr, 'comments']
+		store: ['shows', Db.shared.get('cfg', 'showId'), 'episodes', seasonNr, episodeNr, 'comments']
 		messages:
 			# the key is the `s` key.
 			watched: (c) -> App.userName(c.u) + " watched this episode"
@@ -159,5 +163,8 @@ renderWatched = (watchedBy) !->
 					, (watchedTime) -> -watchedTime.get()
 
 exports.renderSettings = !->
-	return if Db.shared
+	return if not Db.shared
 	Config.render()
+
+# wrapper
+exports.returnShows = (cb, data) !-> Tvdb.returnShows cb, data

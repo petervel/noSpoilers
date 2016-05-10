@@ -5,118 +5,121 @@ Form = require 'form'
 Dom = require 'dom'
 Ui = require 'ui'
 App = require 'app'
+Tvdb = require 'tvdb'
 
 exports.render = !->
 	#if Db.shared
 	#	Dom.div !-> "You can't change the tv show this app is showing. Start a new one for a different show."
 	#	return
+	cfg = Obs.create Db.shared?.peek('cfg') ? {} # the config
+	cfg.set 'season', null # TODO: hack
 
-	showName = Obs.create ''
+	selectedShow = Obs.create() # Db.shared?.get('shows', cfg.peek 'showId')
+
+	showName = Obs.create selectedShow.peek('seriesName') ? ''
 	shows = Obs.create {}
-	selectedShow = Obs.create()
+
 	loading = Obs.create false
 	searched = Obs.create false
 
+	language = Obs.create cfg.language ? 'en' # default to English
+
 	Form.box !->
-		Obs.observe !->
-			showId = Form.hidden '_showId'
-			showId.value +selectedShow.get('id')
+		Form.condition !->
+			return "No tv show selected" if not selectedShow.get()
+			return "No season selected" if not cfg.get 'season'
 
 		Dom.div !->
 			Obs.observe !->
+				showId = Form.hidden 'showId'
+				showId.value +selectedShow.get('id')
+
 				Dom.style display: if selectedShow.get() then 'none' else 'block'
 
 			Form.segmented
-				name: '_language'
-				value: 'en'
+				name: 'language'
+				value: language.peek()
 				segments: ['en', 'English', 'nl', 'Dutch']
-				onChange: (v) !-> Server.sync 'setLanguage', v, !-> Db.shared.set 'cfg', 'language', v
+				onChange: (v) !->
+					language.set v
+					cfg.set 'language', v
 
 			# if a setting changes, refresh the list of shows
 			Obs.observe !->
-				Db.shared.get '_language' # subscribe to changes
+				language.get()  # subscribe
 				if showName.get().length
 					Obs.onTime 500, !->
 						loading.set true
-						searched.set true
-						Server.call 'findShow', showName.peek(), (result) !->
+						Tvdb.findShow showName.peek(), language.peek(), (result) !->
 							# TODO: shouldn't .set just clear existing values in this hash? else it'd be .merge right?
 							shows.set {} # clear old search results
 							shows.set result
-							Obs.onTime 1000, !-> loading.set false # seems to be some delay??
+							searched.set true
+							loading.set false
 				else
-					# clear results
-					shows.set null
+					# clear results, we are not searching atm
+					shows.set {}
 					searched.set false
+					loading.set false
 
-			inp = Form.input
+			seriesName = Db.shared?.peek 'shows', cfg.peek('showId'), 'seriesName'
+			Form.input
 				name: '_showName'
 				text: 'tv show'
-				value: Db.shared.peek 'show', 'seriesName'
+				value: seriesName
 				onChange: (v) !-> showName.set v
 
-		Dom.animate
-			create:
-				opacity: 1
-				initial:
-					opacity: 0
-			remove:
-				opacity: 0
-				initial:
-					opacity: 1
-			content: !->
-				if not selectedShow.get() and searched.get()
-					renderShowsList shows, loading, showName, selectedShow
-
-		Dom.animate
-			create:
-				opacity: 1
-				initial:
-					opacity: 0
-			remove:
-				opacity: 0
-				initial:
-					opacity: 1
-			content: !->
-				if selectedShow.get()
+		Obs.observe !->
+			# we searched and got a response
+			if searched.get()
+				# not selected a show yet? show list of matches
+				if not selectedShow.get()
+					if loading.get()
+						Dom.div !->
+							Dom.style fontStyle: 'italic', fontSize: '11pt', color: '#888'
+							Dom.text "loading..."
+					else
+						renderShowsList shows, loading, showName, selectedShow
+				else
+					# show selected show
 					renderShowItem selectedShow, selectedShow, true
 
 					Obs.observe !->
-						Dom.div !->
-							Dom.style margin: '10px 0'
-							Dom.text "Season:"
+						switch selectedShow.get 'loadResult'
+							when 'loading'
+								Dom.text 'loading'
+								break
+							when 'failed'
+								Dom.text 'failed'
+								break
+							when 'success'
+								Dom.div !->
+									Dom.style margin: '10px 0'
+									Dom.text "Season:"
 
-						seasons = []
-						for s,k of Db.shared.get 'show', 'episodes'
-							seasons.push s
-							seasons.push s
+								seasons = []
+								for k of selectedShow.get 'seasons'
+									seasons.push k
+									seasons.push k
 
-						Form.segmented
-							name: 'season'
-							value: seasons[seasons.length - 1] ? 0
-							segments: seasons
-		Form.condition !->
-			return "No tv show selected" if not selectedShow.get()
+								Form.segmented
+									name: 'season'
+									value: seasons[seasons.length - 1] ? 0 # autoselect latest season
+									segments: seasons
+									onChange: (v) !->
+										cfg.set 'season', v
+								Obs.onClean !->
+									cfg.set 'season', null
 
 renderShowsList = (shows, loading, showName, selectedShow) !->
 	Obs.observe !->
-		if loading.get()
-			Dom.div !->
-				Dom.style fontStyle: 'italic', fontSize: '11pt', color: '#888'
-				Dom.text "loading..."
-			return
-
-		return if not showName.get() # nothing searched
-
 		empty = shows.count().get() is 0
-		Obs.observe !->
-			if not selectedShow.get()
-				Dom.div !->
-					Dom.style margin: '0 5px'
-					if empty
-						Dom.text "No matches found."
-					else
-						Dom.text "#{shows.count().get()} matches:"
+		Dom.div !->
+			Dom.style margin: '0 5px'
+			if empty
+				Dom.text "No matches found."
+			else
+				Dom.text "#{shows.count().get()} matches:"
 
 		if not empty
 			Dom.div !->
@@ -166,9 +169,7 @@ renderShowItem = (show, selectedShow, selected) !->
 		Dom.onTap !->
 			if not selected
 				selectedShow.set show.peek()
-				Server.sync 'loadShow', show.peek('id'), !->
-					Db.shared.set 'show', show.peek()
-					Db.shared.set 'show', 'loading', true
+				selectedShow.set 'loadResult', 'loading'
+				Tvdb.loadEpisodes show.peek('id'), 1, selectedShow.ref('seasons'), selectedShow.ref('loadResult')
 			else
 				selectedShow.set null
-
