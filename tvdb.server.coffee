@@ -76,8 +76,9 @@ exports.setShow = (data) !->
 	if data.status == '200 OK'
 		body = JSON.parse data.body
 		showInfo = body.data
-		showInfo.image = IMAGE_PREFIX + showInfo.banner
-		Db.shared.merge 'shows', showInfo.id, showInfo
+		if showInfo.banner
+			showInfo.nsImage = IMAGE_PREFIX + showInfo.banner
+		Db.shared.merge 'show', showInfo
 		App.setTitle showInfo.seriesName
 		# show loaded, get the episodes
 		loadEpisodes()
@@ -111,7 +112,7 @@ exports.setEpisodes = (data) !->
 			nr = ep.dvdEpisodeNumber ? ep.airedEpisodeNumber
 			episodes[s][nr] = ep
 
-		Db.shared.merge 'shows', showId, 'episodes', episodes
+		Db.shared.merge 'show', 'episodes', episodes
 
 		# are there more episodes?
 		if body.links.next
@@ -131,13 +132,14 @@ exports.setEpisode = (data) !->
 	if data.status == '200 OK'
 		body = JSON.parse data.body
 		ep = body.data
-		ep.image = IMAGE_PREFIX + ep.filename
+		if ep.filename
+			ep.nsImage = IMAGE_PREFIX + ep.filename
 
 		s = ep.dvdSeason ? (ep.airedSeason ? 0) # 0 = specials etc
 		nr = ep.dvdEpisodeNumber ? ep.airedEpisodeNumber
 
 		showId = Db.shared.peek 'cfg', 'showId'
-		Db.shared.merge 'shows', showId, 'episodes', s, nr, ep
+		Db.shared.merge 'show', 'episodes', s, nr, ep
 	else
 		log 'setEpisode error - code: ', data.status, ', msg: ', data.error
 

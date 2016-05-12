@@ -7,15 +7,9 @@ Event = require 'event'
 Comments = require 'comments'
 Tvdb = require 'tvdb'
 
-currentShow = -> Db.shared.ref 'shows', Db.shared.get 'cfg', 'showId'
-
 # make sure we are signed in
 exports.onInstall = !->
 	Tvdb.onInstall()
-
-exports.onUpgrade =!->
-	if not Db.shared.get('token') and Db.backend.get('token')
-		Db.shared.set 'token', Db.backend.get('token')
 
 exports.client_setLanguage = (language) !->
 	Db.shared.set 'cfg', 'language', language
@@ -26,7 +20,7 @@ exports.client_setSeason = (season) !->
 
 exports.client_watched = (episodeNr) !->
 	seasonNr = Db.shared.peek 'cfg', 'season'
-	episode = currentShow().ref 'episodes', seasonNr, episodeNr
+	episode = Db.shared.ref 'shows', 'episodes', seasonNr, episodeNr
 	exports.loadEpisode episode.peek 'id'
 	watchedBy = episode.ref 'watched'
 	sendTo = (+k for k,v of watchedBy.get() when not App.userIsMock(+k))
@@ -36,7 +30,7 @@ exports.client_watched = (episodeNr) !->
 		u: App.userId()
 		path: [seasonNr, episodeNr]
 		normalPrio: sendTo
-		pushText: App.userName() + " watched episode “" + episode.get('info', 'title') + "”"
+		pushText: App.userName() + " watched episode “" + episode.get('episodeName') + "”"
 
 	watchedBy.set App.userId(), App.time()
 
@@ -52,7 +46,7 @@ exports.onConfig = (config = {}, fromInstall = false) !->
 sanityCheckResponse = (data) ->
 	# hack to deal with issues
 	if typeof data isnt 'object'
-		log 'missing response data, assume it was ok...', data
+		log 'missing response data, assume it was ok...'
 		data = status: '200 OK', body: data
 	data
 

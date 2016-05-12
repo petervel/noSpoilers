@@ -20,15 +20,14 @@ exports.render = !->
 	else
 		renderMainPage()
 
-currentShow = -> Db.shared.ref 'shows', Db.shared.get 'cfg', 'showId'
-
 renderMainPage = !->
 	#Page.setTitle Db.shared.get('show', 'seriesName') ? "No Spoilers!"
-	Dom.img !->
-		Dom.style display: 'block', width: '100%', margin: 'auto'
-		Dom.prop 'src', currentShow().get 'image'
+	if image = Db.shared.get 'show', 'nsImage'
+		Dom.img !->
+			Dom.style display: 'block', width: '100%', margin: 'auto'
+			Dom.prop 'src', image
 
-	currentShow().iterate 'episodes', Db.shared.get('cfg', 'season'), (episode) !->
+	Db.shared.iterate 'show', 'episodes', Db.shared.get('cfg', 'season'), (episode) !->
 			renderEpisodeItem episode
 		, (episode) -> +episode.key()
 
@@ -50,7 +49,7 @@ renderEpisodeItem = (episode) !->
 				Dom.style minWidth: '20px', textAlign: 'right', marginRight: '10px'
 				Dom.text episode.key() + '.'
 
-			if episode.get('watched', App.userId()) and image = episode.get('image')
+			if episode.get('watched', App.userId()) and image = episode.get('nsImage')
 				Dom.img !->
 					Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px'
 					Dom.prop 'src', image
@@ -81,7 +80,7 @@ renderEpisodeItem = (episode) !->
 
 renderEpisode = (episodeNr) !->
 	seasonNr = Db.shared.peek('cfg', 'season')
-	episode = currentShow().ref 'episodes', seasonNr, episodeNr
+	episode = Db.shared.ref 'show', 'episodes', seasonNr, episodeNr
 	#Modal.show JSON.stringify episode.get()
 	#info =  episode.ref 'info'
 	watchedBy = episode.ref 'watched'
@@ -103,7 +102,7 @@ renderEpisode = (episodeNr) !->
 		Dom.style textAlign: 'center'
 		renderWatched watchedBy
 
-	if image = episode.get 'image'
+	if image = episode.get 'nsImage'
 		Dom.img !->
 			Dom.style margin: '20px auto', display: 'block'
 			Dom.prop 'src', image
@@ -123,7 +122,7 @@ renderEpisode = (episodeNr) !->
 			comment.lowPrio = 'all'
 			comment.normalPrio = (k for k,v of watchedBy.get())
 			false
-		store: ['shows', Db.shared.get('cfg', 'showId'), 'episodes', seasonNr, episodeNr, 'comments']
+		store: ['show', 'episodes', seasonNr, episodeNr, 'comments']
 		messages:
 			# the key is the `s` key.
 			watched: (c) -> App.userName(c.u) + " watched this episode"
@@ -163,7 +162,6 @@ renderWatched = (watchedBy) !->
 					, (watchedTime) -> -watchedTime.get()
 
 exports.renderSettings = !->
-	return if not Db.shared
 	Config.render()
 
 # wrapper
