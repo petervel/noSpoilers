@@ -14,7 +14,7 @@ exports.render = !->
 
 	cfg = Obs.create Db.shared?.peek('cfg') ? {language: 'en'} # the config
 
-	if reconfiguring = cfg.peek('showId')
+	if reconfiguring = cfg.peek('showId')?
 		selectedShow = Db.shared.ref 'show'
 	else
 		selectedShow = Obs.create()
@@ -24,13 +24,15 @@ exports.render = !->
 	loading = Obs.create false
 	searched = Obs.create false
 
-	Form.box !->
+	Dom.div !->
 		Form.condition !->
 			return "No tv show selected" if not selectedShow.get()
 			return "No season selected" if not cfg.get 'season'
 
 		# reconfiguring? Only let them choose season.
-		if reconfiguring
+		if not reconfiguring
+			Tvdb.getToken()
+
 			Dom.div !->
 				Obs.observe !->
 					showId = Form.hidden 'showId'
@@ -77,7 +79,7 @@ exports.render = !->
 				# show selected show
 				renderShowItem selectedShow, selectedShow, true, reconfiguring
 				Obs.observe !->
-					switch selectedShow.get 'loadResult'
+					switch selectedShow.get 'nsLoadResult'
 						when 'loading'
 							showLoading()
 							break
@@ -93,14 +95,11 @@ exports.render = !->
 							for k of selectedShow.get 'episodes'
 								seasons.push k
 								seasons.push k
-							log cfg.peek 'season'
-							log '----------',seasons
 
 							val = cfg.peek('season') ? seasons[seasons.length - 1] # autoselect latest season
-							log 'val', val
 							Form.segmented
 								name: 'season'
-								value:  "5"
+								value: val
 								segments: seasons
 								onChange: (v) !-> cfg.set 'season', v
 							Obs.onClean !->
@@ -147,7 +146,7 @@ renderShowItems = (shows, selectedShow) !->
 						opacity: 1
 				content: !->
 					return if (sel = selectedShow.get('id')) and sel isnt show.peek 'id'
-					renderShowItem show, selectedShow
+					renderShowItem show, selectedShow, false, false
 
 renderShowItem = (show, selectedShow, selected, reconfiguring) !->
 	Ui.item !->
@@ -177,7 +176,7 @@ renderShowItem = (show, selectedShow, selected, reconfiguring) !->
 			Dom.onTap !->
 				if not selected
 					selectedShow.set show.peek()
-					selectedShow.set 'loadResult', 'loading'
-					Tvdb.loadEpisodes show.peek('id'), 1, selectedShow.ref('seasons'), selectedShow.ref('loadResult')
+					selectedShow.set 'nsLoadResult', 'loading'
+					Tvdb.loadEpisodes show.peek('id'), 1, selectedShow.ref('episodes'), selectedShow.ref('nsLoadResult')
 				else
 					selectedShow.set null
