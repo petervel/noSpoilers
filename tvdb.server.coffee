@@ -17,7 +17,7 @@ getHeaders = !->
 
 	return headers
 
-exports.onInstall = !->
+exports.onInstall = exports.onUpgrade = !->
 	Db.backend.set 'attempts', 0
 	exports.getToken()
 
@@ -58,7 +58,13 @@ exports.setToken = (refreshing, data) !->
 		Db.backend.set 'attempts', 0
 		delay = 12*60*60*1000 # expires after 24 hours, so ensure a working token this way
 
-	Timer.cancel 'getToken'
+		onToken = Db.backend.peek 'onToken'
+		if onToken
+			#Db.backend.set 'onToken', null
+			if onToken is 'loadShow'
+				exports.loadShow()
+
+	Timer.cancel 'getToken', refreshing
 	Timer.set delay, 'getToken'
 
 # LOADING A SHOW'S ENTIRE DATA

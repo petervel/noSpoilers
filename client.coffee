@@ -138,7 +138,7 @@ renderWatched = (watchedBy) !->
 
 	Dom.div !->
 		colour = if watchedBy.get(App.userId()) then App.colors().highlight else '#ddd'
-		Dom.style color: colour, borderRadius: '3px', minWidth: '30px', padding: '5px 0px'
+		Dom.style color: colour, borderRadius: '3px', minWidth: '30px', padding: '15px 10px', margin: '-10px'
 		Icon.render
 			data: 'eye'
 			size: 20
@@ -147,19 +147,25 @@ renderWatched = (watchedBy) !->
 		Dom.text watchedCount.get()
 		Dom.onTap !->
 			Modal.show "Watched by:", !->
-				watchedBy.iterate (watchedTime) !->
-						userId = +watchedTime.key()
-						return if App.userIsMock(userId)
-						Ui.item !->
-							if userId is App.userId()
-								Dom.style fontWeight: 'bold'
-							Ui.avatar
-								key: App.userAvatar(userId)
-								onTap: !-> App.showMemberInfo(userId)
-							Dom.div !->
-								Dom.style marginLeft: '10px', Flex: 1
-								Dom.text App.userName(userId)
-					, (watchedTime) -> -watchedTime.get()
+				if watchedCount.get()
+					watchedBy.iterate (watchedTime) !->
+							userId = +watchedTime.key()
+							return if App.userIsMock(userId)
+							Ui.item !->
+								if userId is App.userId()
+									Dom.style fontWeight: 'bold'
+								Ui.avatar
+									key: App.userAvatar(userId)
+									onTap: !-> App.showMemberInfo(userId)
+								Dom.div !->
+									Dom.style marginLeft: '10px', Flex: 1
+									Dom.text App.userName(userId)
+						, (watchedTime) -> -watchedTime.get()
+				else
+					Dom.div !->
+						Dom.style padding: '5px'
+						Dom.text "no one yet"
+
 
 exports.renderSettings = !->
 	Config.render()

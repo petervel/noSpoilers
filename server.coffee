@@ -8,8 +8,13 @@ Comments = require 'comments'
 Tvdb = require 'tvdb'
 
 # make sure we are signed in
-exports.onInstall = !->
+exports.onInstall = (config) !->
+	Db.backend.set 'onToken', 'loadShow'
+	Db.shared.set 'cfg', config
 	Tvdb.onInstall()
+
+exports.onUpgrade = !->
+	Tvdb.onUpgrade()
 
 exports.client_setLanguage = (language) !->
 	Db.shared.set 'cfg', 'language', language
@@ -20,13 +25,13 @@ exports.client_setSeason = (season) !->
 
 exports.client_watched = (episodeNr) !->
 	seasonNr = Db.shared.peek 'cfg', 'season'
-	episode = Db.shared.ref 'shows', 'episodes', seasonNr, episodeNr
+	episode = Db.shared.ref 'show', 'episodes', seasonNr, episodeNr
 	exports.loadEpisode episode.peek 'id'
 	watchedBy = episode.ref 'watched'
 	sendTo = (+k for k,v of watchedBy.get() when not App.userIsMock(+k))
 	Comments.post
 		s: 'watched'
-		store: ['shows', Db.shared.peek('cfg', 'showId'), 'episodes', seasonNr, episodeNr, 'comments']
+		store: ['show', 'episodes', seasonNr, episodeNr, 'comments']
 		u: App.userId()
 		path: [seasonNr, episodeNr]
 		normalPrio: sendTo
