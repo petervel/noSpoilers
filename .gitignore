@@ -6,4 +6,4 @@
 .*.sw?
 .deploykey
 *.sh
-example-data.xml
+key.common.coffee

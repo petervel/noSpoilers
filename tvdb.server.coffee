@@ -1,8 +1,8 @@
 Http = require 'http'
 Db = require 'db'
 Timer = require 'timer'
+Key = require 'key'
 
-API_KEY = "67557EB2FBDA2BED"
 IMAGE_PREFIX = "http://thetvdb.com/banners/"
 getHeaders = !->
 	headers =
@@ -33,7 +33,7 @@ exports.getToken = !->
 		log 'getting new token...'
 		Http.post
 			headers: getHeaders()
-			body: "{\"apikey\":\"#{API_KEY}\"}"
+			body: "{\"apikey\":\"#{Key.apikey()}\"}"
 			url: 'https://api.thetvdb.com/login'
 			cb: ['setToken', false]
 

@@ -1,5 +1,6 @@
 Db = require 'db'
 Http = require 'http'
+Key = require 'key'
 
 token = Db.shared?.get 'token'
 
@@ -65,14 +66,11 @@ exports.loadEpisodes = (id, page, episodesO, result) !->
 
 # DUPLICATE CODE
 
-
-API_KEY = "67557EB2FBDA2BED"
-
 exports.getToken = !->
 	log 'getting new token...'
 	Http.post
 		headers: getHeaders()
-		body: "{\"apikey\":\"#{API_KEY}\"}"
+		body: "{\"apikey\":\"#{Key.apikey()}\"}"
 		url: 'https://api.thetvdb.com/login'
 		cb: (data) !->
 			if data.status != '200 OK' # other unknown problem
