@@ -32,50 +32,51 @@ renderMainPage = !->
 		, (episode) -> +episode.key()
 
 renderEpisodeItem = (episode) !->
-		Ui.item !->
-			Dom.onTap !->
-				goToEpisode = !-> Page.nav episode.key()
-				if episode.get 'watched', App.userId()
-					goToEpisode()
-				else
-					Modal.confirm "SPOILERS AHEAD!", "Are you sure you have already watched this episode?", !->
-						Server.sync 'watched', episode.key(), !->
-							episode.set 'watched', App.userId(), true
-						goToEpisode()
-
-			Dom.style Box: 'horizontal', alignItems: 'center'
-
-			Dom.div !->
-				Dom.style minWidth: '20px', textAlign: 'right', marginRight: '10px'
-				Dom.text episode.key() + '.'
-
-			if episode.get('watched', App.userId()) and image = episode.get('nsImage')
-				Dom.img !->
-					Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px'
-					Dom.prop 'src', image
+	seasonNr = +Db.shared.peek('cfg', 'season')
+	Ui.item !->
+		Dom.onTap !->
+			goToEpisode = !-> Page.nav episode.key()
+			if episode.get 'watched', App.userId()
+				goToEpisode()
 			else
-				Dom.div !->
-					Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px', background: '#ddd', textAlign: 'center', lineHeight: '36px', color: '#fff'
-					Dom.text "?"
+				Modal.confirm "SPOILERS AHEAD!", "Are you sure you have already watched this episode?", !->
+					Server.sync 'watched', episode.key(), !->
+						episode.set 'watched', App.userId(), true
+					goToEpisode()
 
+		Dom.style Box: 'horizontal', alignItems: 'center'
+
+		Dom.div !->
+			Dom.style minWidth: '20px', textAlign: 'right', marginRight: '10px'
+			Dom.text episode.key() + '.'
+
+		if episode.get('watched', App.userId()) and image = episode.get('nsImage')
+			Dom.img !->
+				Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px'
+				Dom.prop 'src', image
+		else
 			Dom.div !->
-				tmp = episode.get('firstAired')?.split('-')
-				airDate = new Date tmp[0], (+tmp[1] - 1), (+tmp[2] + 1)
-				delta = App.date().getTime() - airDate.getTime()
-				fontWeight = if delta > 0 and delta < (7*24*60*60*1000) then 'bold' else 'inherit'
+				Dom.style margin: '0 10px', display: 'block', height: '36px', width: '64px', borderRadius: '5px', background: '#ddd', textAlign: 'center', lineHeight: '36px', color: '#fff'
+				Dom.text "?"
 
-				Dom.style Flex: 1, fontWeight: fontWeight
-				Dom.text episode.get 'episodeName'
+		Dom.div !->
+			tmp = episode.get('firstAired')?.split('-')
+			airDate = new Date tmp[0], (+tmp[1] - 1), (+tmp[2] + 1)
+			delta = App.date().getTime() - airDate.getTime()
+			fontWeight = if delta > 0 and delta < (7*24*60*60*1000) then 'bold' else 'inherit'
 
-				Dom.span !->
-					Dom.style color: '#ddd', fontSize: 'x-small', margin: '0 5px'
-					Dom.text "(" + episode.get('firstAired') + ")"
+			Dom.style Flex: 1, fontWeight: fontWeight
+			Dom.text episode.get 'episodeName'
 
-			Dom.div !->
-				Dom.style padding: '0 5px', width: '30px'
-				Event.renderBubble [episode.key()]
+			Dom.span !->
+				Dom.style color: '#ddd', fontSize: 'x-small', margin: '0 5px'
+				Dom.text "(" + episode.get('firstAired') + ")"
 
-			renderWatched episode.ref 'watched'
+		Dom.div !->
+			Dom.style padding: '0 5px', width: '30px'
+			Event.renderBubble [seasonNr, +episode.key()]
+
+		renderWatched episode.ref 'watched'
 
 
 renderEpisode = (episodeNr) !->
@@ -123,6 +124,7 @@ renderEpisode = (episodeNr) !->
 			comment.normalPrio = (k for k,v of watchedBy.get())
 			false
 		store: ['show', 'episodes', seasonNr, episodeNr, 'comments']
+		path: [seasonNr, episodeNr]
 		messages:
 			# the key is the `s` key.
 			watched: (c) -> App.userName(c.u) + " watched this episode"

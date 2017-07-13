@@ -3,7 +3,6 @@ Http = require 'http'
 Timer = require 'timer'
 App = require 'app'
 Xml = require 'xml'
-Event = require 'event'
 Comments = require 'comments'
 Tvdb = require 'tvdb'
 
