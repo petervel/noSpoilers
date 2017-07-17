@@ -74,7 +74,7 @@ renderEpisodeItem = (episode) !->
 
 		Dom.div !->
 			Dom.style padding: '0 5px', width: '30px'
-			Event.renderBubble [seasonNr, +episode.key()]
+			Event.renderBubble [episode.key()]
 
 		renderWatched episode.ref 'watched'
 
@@ -124,7 +124,7 @@ renderEpisode = (episodeNr) !->
 			comment.normalPrio = (k for k,v of watchedBy.get())
 			false
 		store: ['show', 'episodes', seasonNr, episodeNr, 'comments']
-		path: [seasonNr, episodeNr]
+		path: [episodeNr]
 		messages:
 			# the key is the `s` key.
 			watched: (c) -> App.userName(c.u) + " watched this episode"

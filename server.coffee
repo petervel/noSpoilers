@@ -32,7 +32,7 @@ exports.client_watched = (episodeNr) !->
 		s: 'watched'
 		store: ['show', 'episodes', seasonNr, episodeNr, 'comments']
 		u: App.userId()
-		path: [seasonNr, episodeNr]
+		path: [episodeNr]
 		normalPrio: sendTo
 		pushText: App.userName() + " watched episode “" + episode.get('episodeName') + "”"
 
