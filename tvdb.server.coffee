@@ -97,9 +97,10 @@ loadEpisodes = (page) !->
 	page = page ? 1
 
 	id = Db.shared.peek 'cfg', 'showId'
+	season = Db.shared.peek 'cfg', 'season'
 	Http.get
 		headers: getHeaders()
-		url: "https://api.thetvdb.com/series/#{id}/episodes?page=#{page}"
+		url: "https://api.thetvdb.com/series/#{id}/episodes/query?airedSeason=#{season}&page=#{page}"
 		cb: ['setEpisodes']
 
 exports.setEpisodes = (data) !->
@@ -110,12 +111,12 @@ exports.setEpisodes = (data) !->
 		showId = Db.shared.peek 'cfg', 'showId'
 		episodes = {}
 		for ep in body.data
-			s = ep.dvdSeason ? (ep.airedSeason ? 0) # 0 = specials etc
+			s = ep.airedSeason ? (ep.dvdSeason ? 0) # 0 = specials etc
 
 			if not episodes[s]
 				episodes[s] = {}
 
-			nr = ep.dvdEpisodeNumber ? ep.airedEpisodeNumber
+			nr = ep.airedEpisodeNumber ? ep.dvdEpisodeNumber
 			episodes[s][nr] = ep
 
 		Db.shared.merge 'show', 'episodes', episodes
